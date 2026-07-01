@@ -200,14 +200,18 @@
 <script>
     /**
      * 問題データ
-     * ピアノ問題の「a」はオクターブ（数字）を抜いた【音名名のみ（C, D, D#など）】に変更しました。
-     * これにより、2オクターブ内のどこを押しても順不同で正解になります。
+     * 問題1の「a」の選択肢に「クラインソプラニーノ」「クラインソプラニーノリコーダー」のパターンを追加しました。
      */
     const allQuestions = [
         {
             id: 1, type: "text",
             q: "リコーダーの種類を大きい（低い）順に、コントラバスから一番小さいものまで8種類を順番に書きなさい。（「、」またはカンマ区切り）",
-            a: ["コントラバス、グレートバス、バス、テノール、アルト、ソプラノ、ソプラニーノ、ガークライン", "コントラバス、グレートバス、バス、テノール、あると、ソプラノ、ソプラニーノ、ガークライン"]
+            a: [
+                "コントラバス、グレートバス、バス、テノール、アルト、ソプラノ、ソプラニーノ、ガークライン", 
+                "コントラバス、グレートバス、バス、テノール、あると、ソプラノ、ソプラニーノ、ガークライン",
+                "コントラバス、グレートバス、バス、テノール、アルト、ソプラノ、ソプラニーノ、クラインソプラニーノ",
+                "コントラバス、グレートバス、バス、テノール、アルト、ソプラノ、ソプラニーノ、クラインソプラニーノリコーダー"
+            ]
         },
         {
             id: 2, type: "text",
@@ -215,7 +219,6 @@
             img: true,
             a: ["ウインドウェイ", "歌口", "窓", "トーンホール", "足部管", "頭部管", "中部管", "サムホール", "ベル"]
         },
-        // ピアノ問題：音名だけで判定（順不同・オクターブ不問）
         { id: 3, type: "piano", q: "和音「C（基本形）」を構成する音をすべて選びなさい。", a: ["C", "E", "G"] },
         { id: 4, type: "piano", q: "和音「G（基本形）」を構成する音をすべて選びなさい。", a: ["G", "B", "D"] },
         { id: 5, type: "piano", q: "和音「Fm（基本形）」を構成する音をすべて選びなさい。", a: ["F", "G#", "C"] },
@@ -245,7 +248,7 @@
         { id: 28, type: "text", q: "エーデルワイスのテンポは？", a: ["112～120", "112-120"] }
     ];
 
-    // ピアノレイアウト (データ属性にはオクターブ無しの純粋な音名を設定)
+    // ピアノレイアウト
     const pianoLayout = [
         { n: 'C', t: 'white' }, { n: 'C#', t: 'black' }, { n: 'D', t: 'white' }, { n: 'D#', t: 'black' }, { n: 'E', t: 'white' },
         { n: 'F', t: 'white' }, { n: 'F#', t: 'black' }, { n: 'G', t: 'white' }, { n: 'G#', t: 'black' }, { n: 'A', t: 'white' }, { n: 'A#', t: 'black' }, { n: 'B', t: 'white' },
@@ -258,7 +261,7 @@
     let currentIndex = 0;
     let score = 0;
     let wrongIds = [];
-    let selectedKeys = new Set(); // 実際に押された鍵盤の音名を格納
+    let selectedKeys = new Set();
     let answered = false;
 
     window.onload = () => {
@@ -335,19 +338,16 @@
             const pInner = document.createElement('div');
             pInner.className = 'piano';
             
-            // 鍵盤の生成（同じ音名が複数あっても一律で処理）
             pianoLayout.forEach((k, idx) => {
                 const kDiv = document.createElement('div');
                 kDiv.className = `key ${k.t}-key`;
-                kDiv.id = `key-${idx}`; // 各鍵盤に固有のIDを振る
-                kDiv.dataset.note = k.n; // 音名（C, Dなど）
+                kDiv.id = `key-${idx}`;
+                kDiv.dataset.note = k.n;
                 if (k.label) kDiv.innerHTML = `<span class="key-label">${k.label}</span>`;
                 
                 kDiv.onclick = function() {
                     if (answered) return;
                     this.classList.toggle('selected');
-                    
-                    // 選択された全ての鍵盤の音名を集計し直す
                     recalculateSelectedKeys(pInner);
                 };
                 pInner.appendChild(kDiv);
@@ -387,12 +387,8 @@
             const norm = normalize(userText);
             correct = q.a.some(ans => normalize(ans) === norm);
         } else {
-            // ユーザーが選択した音名リスト
             const selArr = Array.from(selectedKeys).sort();
-            // 正解の音名リスト
             const ansArr = [...q.a].sort();
-            
-            // 順不同かつオクターブ不問の比較（JSON文字列化して一致確認）
             correct = JSON.stringify(selArr) === JSON.stringify(ansArr);
             userText = selArr.join(', ') || "選択なし";
         }
@@ -427,7 +423,7 @@
             if (!wrongIds.includes(q.id)) wrongIds.push(q.id);
             box.className = 'feedback wrong';
             const ansDisp = q.type === 'piano' ? q.a.join(', ') : q.a[0];
-            box.innerHTML = `❌ 残念！<br>あなたの回答（含まれる音名）: ${userVal}<br>正解に必要な音名: ${ansDisp}`;
+            box.innerHTML = `❌ 残念！<br>あなたの回答: ${userVal}<br>正解: ${ansDisp}`;
         }
         document.getElementById('btn-answer').style.display = 'none';
         document.getElementById('btn-next').style.display = 'inline-block';
