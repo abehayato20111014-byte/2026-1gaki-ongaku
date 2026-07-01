@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音楽クイズアプリ</title>
+    <style>
+        :root {
+            --primary: #4CAF50;
+            --primary-hover: #45a049;
+            --bg: #f9f9f9;
+            --text: #333;
+            --card-bg: #fff;
+            --warning: #ff9800;
+            --warning-hover: #e68a00;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        h1, h2, h3 { text-align: center; }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 10px 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .btn-force-correct {
+            background-color: var(--warning);
+        }
+        .btn-force-correct:hover {
+            background-color: var(--warning-hover);
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea { height: 100px; resize: vertical; }
+        img.quiz-img { max-width: 100%; height: auto; border: 1px solid #ddd; margin-bottom: 10px; }
+
+        /* ピアノ鍵盤のスタイル */
+        .piano-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            user-select: none;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+        .piano {
+            display: flex;
+            height: 200px;
+        }
+        .key {
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .white-key {
+            width: 45px;
+            height: 100%;
+            background-color: white;
+            border: 1px solid #333;
+            border-radius: 0 0 5px 5px;
+            position: relative;
+            z-index: 1;
+        }
+        .black-key {
+            width: 28px;
+            height: 60%;
+            background-color: #333;
+            border-radius: 0 0 4px 4px;
+            margin-left: -14px;
+            margin-right: -14px;
+            position: relative;
+            z-index: 2;
+        }
+        .key.selected { background-color: #ffeb3b !important; }
+
+        .progress { margin-bottom: 20px; font-weight: bold; color: #666; }
+        .feedback {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            display: none;
+        }
+        .feedback.correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .feedback.wrong { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+
+        .control-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="home-screen" class="screen active">
+        <h1>🎵 音楽総合クイズ</h1>
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="startQuiz('all')">すべての問題に挑戦（ランダム順）</button>
+            <button id="btn-retry" onclick="startQuiz('retry')" style="display: none; background-color: var(--warning);">間違えた問題のみ挑戦</button>
+        </div>
+
+        <h3 style="margin-top: 50px;">📈 学習の記録（正答率の推移）</h3>
+        <div id="history-container">
+            <table id="history-table">
+                <thead>
+                    <tr><th>日時</th><th>スコア</th><th>正答率</th></tr>
+                </thead>
+                <tbody id="history-tbody">
+                    </tbody>
+            </table>
+            <p id="no-history-msg" style="text-align: center; color: #666;">まだ記録がありません。</p>
+        </div>
+    </div>
+
+    <div id="quiz-screen" class="screen">
+        <div class="progress" id="progress-text">問題 1 / 10</div>
+        <h2 id="question-text">問題文</h2>
+        
+        <div id="image-container" style="display: none; text-align: center;">
+            <img src="リコーダー.png" alt="リコーダーの画像" class="quiz-img" onerror="this.onerror=null; this.src=''; this.alt='【エラー】同じフォルダに「リコーダー.png」が見つかりません';">
+        </div>
+
+        <div id="input-container">
+            </div>
+
+        <div class="feedback" id="feedback-box"></div>
+
+        <div class="control-panel">
+            <div>
+                <button id="btn-force-correct" class="btn-force-correct" onclick="forceCorrect()">ほぼ合っているので正解にする</button>
+            </div>
+            <div>
+                <button id="btn-answer" onclick="submitAnswer()">回答する</button>
+                <button id="btn-next" onclick="nextQuestion()" style="display: none;">次の問題へ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h1>結果発表 🎉</h1>
+        <h2 id="result-score"></h2>
+        <p id="result-message" style="text-align: center; font-size: 18px;"></p>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="goHome()">ホームに戻る</button>
+            <button id="btn-result-retry" onclick="startQuiz('retry')" style="display: none; background-color: var(--warning);">間違えた問題に再挑戦</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 問題データ ---
+    const allQuestions = [
+        {
+            id: 1, type: "text",
+            q: "リコーダーの種類を大きい（低い）順に、コントラバスから一番小さいものまで8種類を順番に書きなさい。（読点「、」またはカンマで区切ること）",
+            a: ["コントラバス、グレートバス、バス、テノール、アルト、ソプラノ、ソプラニーノ、ガークライン", "コントラバス、グレートバス、バス、テノール、あると、ソプラノ、ソプラニーノ、ガークライン"]
+        },
+        {
+            id: 2, type: "text",
+            q: "提示されたリコーダーの画像で、線が引かれて「A」などと記述されている部分の名称を答えなさい。",
+            img: true,
+            a: ["ウインドウェイ", "歌口", "窓", "トーンホール", "足部管", "頭部管", "中部管"]
+        },
+        { id: 3, type: "piano", q: "和音「C」を構成する音を鍵盤からすべて選びなさい。", a: ["C", "E", "G"] },
+        { id: 4, type: "piano", q: "和音「G」を構成する音を鍵盤からすべて選びなさい。", a: ["G", "B", "D"] },
+        { id: 5, type: "piano", q: "和音「Fm」を構成する音を鍵盤からすべて選びなさい。", a: ["F", "G#", "C"] },
+        { id: 6, type: "piano", q: "和音「C7」を構成する音を鍵盤からすべて選びなさい。", a: ["C", "E", "G", "A#"] },
+        { id: 7, type: "piano", q: "和音「Dm7」を構成する音を鍵盤からすべて選びなさい。", a: ["D", "F", "A", "C"] },
+        { id: 8, type: "piano", q: "和音「Gm6」を構成する音を鍵盤からすべて選びなさい。", a: ["G", "A#", "D", "E"] },
+        { id: 9, type: "text", q: "歌曲「花」の作曲者は誰？", a: ["滝廉太郎", "瀧廉太郎"] },
+        { id: 10, type: "text", q: "歌曲「花」の作詞者は誰？", a: ["武島羽衣"] },
+        { id: 11, type: "text", q: "「花」のテンポは？（数字と記号で）", a: ["60～66", "60-66", "60〜66"] },
+        { id: 12, type: "text", q: "「花」の序盤部分になぜ16分休符があるか？", a: ["躍動感を出すため", "躍動感をだすため", "躍動感"] },
+        { id: 13, type: "text", q: "「花」は何分の何拍子？", a: ["4分の2", "2/4", "4分の2拍子"] },
+        { id: 14, type: "text", q: "「花」は何調？", a: ["ト長調"] },
+        { id: 15, type: "text", q: "rit.（リタルダンド）とはどういう意味？", a: ["だんだん遅く", "だんだんおそく"] },
+        { id: 16, type: "text", q: "a tempo（ア・テンポ）とはどういう意味？", a: ["もとの速さで", "元の速さで", "もとの速さ"] },
+        { id: 17, type: "text", q: "「花」は、なんという組歌の第1曲？", a: ["四季"] },
+        { id: 18, type: "text", q: "歌詞中の「うらら」とはどういう意味？", a: ["やわらかい日差しを受けている", "やわらかい日差し", "柔らかい日差し"] },
+        { id: 19, type: "text", q: "歌詞中の「見ずや」とはどういう意味？", a: ["みてごらん", "見てごらん"] },
+        { id: 20, type: "text", q: "歌詞中の「げに（げた）」の意味とは？", a: ["本当に", "ほんとうに"] },
+        { id: 21, type: "textarea", q: "「花」の1番の歌詞をすべて書きなさい。", a: ["春のうららの隅田川のぼりくだりの船人が櫂のしずくも花と散るながめを何にたとうべき"] },
+        { id: 22, type: "textarea", q: "「花」の3番の歌詞をすべて書きなさい。", a: ["錦おりなす長堤に暮るればのぼるおぼろ月げに一刻も千金のながめを何にたとうべきながめを何にたとうべき"] },
+        { id: 23, type: "text", q: "「エーデルワイス (Edelweiss)」の Edel の意味は？", a: ["高貴な", "高貴"] },
+        { id: 24, type: "text", q: "CやGなど、和音を数字やアルファベットで表したものを何というか？", a: ["コードネーム", "コード"] },
+        { id: 25, type: "text", q: "複数の音が重なってできるものをなんというか？", a: ["和音"] },
+        { id: 26, type: "text", q: "エーデルワイスの作曲者はだれ？", a: ["R.ロジャーズ", "Rロジャーズ", "ロジャーズ", "リチャードロジャーズ"] },
+        { id: 27, type: "text", q: "エーデルワイスの編曲者は誰？", a: ["飯沼審議", "飯沼信義"] },
+        { id: 28, type: "text", q: "エーデルワイスのテンポは？", a: ["112～120", "112-120", "112〜120"] }
+    ];
+
+    // --- 状態管理変数 ---
+    let currentQuestions = [];
+    let currentIndex = 0;
+    let score = 0;
+    let wrongQuestionIds = [];
+    let selectedPianoKeys = new Set();
+    let hasAnswered = false; // 現在の問題に回答済み（または判定済み）か
+
+    const pianoLayout = [
+        { note: 'C', type: 'white' }, { note: 'C#', type: 'black' },
+        { note: 'D', type: 'white' }, { note: 'D#', type: 'black' },
+        { note: 'E', type: 'white' },
+        { note: 'F', type: 'white' }, { note: 'F#', type: 'black' },
+        { note: 'G', type: 'white' }, { note: 'G#', type: 'black' },
+        { note: 'A', type: 'white' }, { note: 'A#', type: 'black' },
+        { note: 'B', type: 'white' },
+        { note: 'C2', type: 'white', val: 'C' }, { note: 'C#2', type: 'black', val: 'C#' },
+        { note: 'D2', type: 'white', val: 'D' }, { note: 'D#2', type: 'black', val: 'D#' },
+        { note: 'E2', type: 'white', val: 'E' },
+        { note: 'F2', type: 'white', val: 'F' }, { note: 'F#2', type: 'black', val: 'F#' },
+        { note: 'G2', type: 'white', val: 'G' }, { note: 'G#2', type: 'black', val: 'G#' },
+        { note: 'A2', type: 'white', val: 'A' }, { note: 'A#2', type: 'black', val: 'A#' },
+        { note: 'B2', type: 'white', val: 'B' }
+    ];
+
+    window.onload = () => {
+        loadHistory();
+        checkRetryAvailability();
+    };
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function goHome() {
+        showScreen('home-screen');
+        loadHistory();
+        checkRetryAvailability();
+    }
+
+    function checkRetryAvailability() {
+        const savedWrongs = JSON.parse(localStorage.getItem('musicQuizWrongs')) || [];
+        const btnRetry = document.getElementById('btn-retry');
+        if (savedWrongs.length > 0) {
+            btnRetry.style.display = 'inline-block';
+            btnRetry.innerText = `間違えた問題のみ挑戦 (${savedWrongs.length}問)`;
+        } else {
+            btnRetry.style.display = 'none';
+        }
+    }
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // --- クイズの進行 ---
+    function startQuiz(mode) {
+        if (mode === 'all') {
+            currentQuestions = shuffleArray([...allQuestions]);
+        } else if (mode === 'retry') {
+            const savedWrongs = JSON.parse(localStorage.getItem('musicQuizWrongs')) || [];
+            const filtered = allQuestions.filter(q => savedWrongs.includes(q.id));
+            currentQuestions = shuffleArray(filtered);
+            if (currentQuestions.length === 0) return;
+        }
+
+        currentIndex = 0;
+        score = 0;
+        wrongQuestionIds = [];
+        showScreen('quiz-screen');
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        hasAnswered = false;
+        const q = currentQuestions[currentIndex];
+        document.getElementById('progress-text').innerText = `問題 ${currentIndex + 1} / ${currentQuestions.length}`;
+        document.getElementById('question-text').innerText = q.q;
+        
+        const imgContainer = document.getElementById('image-container');
+        imgContainer.style.display = q.img ? 'block' : 'none';
+
+        const inputContainer = document.getElementById('input-container');
+        inputContainer.innerHTML = '';
+        selectedPianoKeys.clear();
+
+        if (q.type === 'text') {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'answer-input';
+            input.placeholder = '回答を入力してください';
+            inputContainer.appendChild(input);
+            input.focus();
+        } else if (q.type === 'textarea') {
+            const textarea = document.createElement('textarea');
+            textarea.id = 'answer-input';
+            textarea.placeholder = '歌詞を最後まで入力してください（スペースや改行は判定に影響しません）';
+            inputContainer.appendChild(textarea);
+            textarea.focus();
+        } else if (q.type === 'piano') {
+            const pianoDiv = document.createElement('div');
+            pianoDiv.className = 'piano-container';
+            const pianoInner = document.createElement('div');
+            pianoInner.className = 'piano';
+
+            pianoLayout.forEach(k => {
+                const keyDiv = document.createElement('div');
+                keyDiv.className = `key ${k.type}-key`;
+                keyDiv.dataset.val = k.val || k.note;
+                keyDiv.onclick = function() {
+                    if (hasAnswered) return; // 回答後は鍵盤を押せないように
+                    this.classList.toggle('selected');
+                    if (this.classList.contains('selected')) {
+                        selectedPianoKeys.add(this.dataset.val);
+                    } else {
+                        let stillSelected = false;
+                        pianoInner.querySelectorAll('.selected').forEach(el => {
+                            if(el !== this && el.dataset.val === this.dataset.val) stillSelected = true;
+                        });
+                        if(!stillSelected) selectedPianoKeys.delete(this.dataset.val);
+                    }
+                };
+                pianoInner.appendChild(keyDiv);
+            });
+            pianoDiv.appendChild(pianoInner);
+            inputContainer.appendChild(pianoDiv);
+            
+            const hint = document.createElement('p');
+            hint.style.textAlign = 'center';
+            hint.style.fontSize = '14px';
+            hint.style.color = '#666';
+            hint.innerText = '※和音を構成する鍵盤をクリックして黄色にしてください（オクターブ位置は問いません）';
+            inputContainer.appendChild(hint);
+        }
+
+        document.getElementById('feedback-box').style.display = 'none';
+        document.getElementById('btn-answer').style.display = 'inline-block';
+        document.getElementById('btn-next').style.display = 'none';
+        document.getElementById('btn-force-correct').disabled = false;
+        document.getElementById('btn-force-correct').style.opacity = '1';
+    }
+
+    function normalizeStr(str) {
+        return str
+            .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+            .toLowerCase()
+            .replace(/[\s 、。,\.\n]/g, '');
+    }
+
+    // 通常の回答判定
+    function submitAnswer() {
+        if (hasAnswered) return;
+        hasAnswered = true;
+
+        const q = currentQuestions[currentIndex];
+        let isCorrect = false;
+        let userAnswerText = "";
+
+        if (q.type === 'text' || q.type === 'textarea') {
+            const inputVal = document.getElementById('answer-input').value;
+            userAnswerText = inputVal;
+            const normalizedInput = normalizeStr(inputVal);
+            isCorrect = q.a.some(correctAnswer => normalizeStr(correctAnswer) === normalizedInput);
+        } else if (q.type === 'piano') {
+            const selectedArr = Array.from(selectedPianoKeys).sort();
+            const correctArr = [...q.a].sort();
+            isCorrect = JSON.stringify(selectedArr) === JSON.stringify(correctArr);
+            userAnswerText = selectedArr.join(', ') || "選択なし";
+        }
+
+        showFeedback(isCorrect, userAnswerText);
+    }
+
+    // プレイヤーが強制的に正解にする関数（常に使用可能）
+    function forceCorrect() {
+        const q = currentQuestions[currentIndex];
+        let userAnswerText = "";
+
+        if (q.type === 'text' || q.type === 'textarea') {
+            userAnswerText = document.getElementById('answer-input').value || "未入力";
+        } else if (q.type === 'piano') {
+            userAnswerText = Array.from(selectedPianoKeys).sort().join(', ') || "選択なし";
+        }
+
+        // すでに不正解としてリスト入りしていたら除外する
+        const indexInWrongs = wrongQuestionIds.indexOf(q.id);
+        if (indexInWrongs !== -1) {
+            wrongQuestionIds.splice(indexInWrongs, 1);
+            score++; // 不正解から正解へ変更されたためスコアを加算
+        } else if (!hasAnswered) {
+            // まだ「回答する」ボタンを押してない状態からダイレクトに正解にする場合
+            score++;
+        }
+
+        hasAnswered = true;
+        showFeedback(true, userAnswerText, true);
+    }
+
+    // フィードバック表示処理
+    function showFeedback(isCorrect, userAnswerText, isForced = false) {
+        const q = currentQuestions[currentIndex];
+        const feedback = document.getElementById('feedback-box');
+        feedback.style.display = 'block';
+
+        if (isCorrect) {
+            feedback.className = 'feedback correct';
+            feedback.innerHTML = isForced ? '⭕ 自己判定により正解にしました！' : '⭕ 正解です！';
+            document.getElementById('btn-force-correct').disabled = true;
+            document.getElementById('btn-force-correct').style.opacity = '0.5';
+        } else {
+            // 通常の不正解時のみ、一度間違えリストに入れる
+            if (!wrongQuestionIds.includes(q.id)) {
+                wrongQuestionIds.push(q.id);
+            }
+            feedback.className = 'feedback wrong';
+            let correctText = q.type === 'piano' ? q.a.join(', ') : q.a[0];
+            feedback.innerHTML = `❌ 残念！<br><br>あなたの回答: ${userAnswerText}<br>正解の例: ${correctText}<br><br><small>※おまけで正解にしたい場合は、左下のボタンを押してください。</small>`;
+        }
+
+        document.getElementById('btn-answer').style.display = 'none';
+        document.getElementById('btn-next').style.display = 'inline-block';
+    }
+
+    function nextQuestion() {
+        currentIndex++;
+        if (currentIndex < currentQuestions.length) {
+            renderQuestion();
+        } else {
+            finishQuiz();
+        }
+    }
+
+    function finishQuiz() {
+        const previousWrongs = JSON.parse(localStorage.getItem('musicQuizWrongs')) || [];
+        const correctIds = currentQuestions.filter(q => !wrongQuestionIds.includes(q.id)).map(q => q.id);
+        let newWrongs = previousWrongs.filter(id => !correctIds.includes(id));
+        
+        wrongQuestionIds.forEach(id => {
+            if (!newWrongs.includes(id)) newWrongs.push(id);
+        });
+        
+        localStorage.setItem('musicQuizWrongs', JSON.stringify(newWrongs));
+
+        const percent = Math.round((score / currentQuestions.length) * 100);
+        const history = JSON.parse(localStorage.getItem('musicQuizHistory')) || [];
+        history.push({
+            date: new Date().toLocaleString(),
+            score: score,
+            total: currentQuestions.length,
+            percent: percent
+        });
+        localStorage.setItem('musicQuizHistory', JSON.stringify(history));
+
+        showScreen('result-screen');
+        document.getElementById('result-score').innerText = `${currentQuestions.length}問中 ${score}問 正解！ (正答率: ${percent}%)`;
+        
+        const msg = document.getElementById('result-message');
+        if (percent === 100) {
+            msg.innerText = "パーフェクト！素晴らしいです！";
+        } else if (percent >= 80) {
+            msg.innerText = "あともう少し！よくできました。";
+        } else {
+            msg.innerText = "間違えた問題を復習して再チャレンジしましょう！";
+        }
+
+        const btnResultRetry = document.getElementById('btn-result-retry');
+        if (newWrongs.length > 0) {
+            btnResultRetry.style.display = 'inline-block';
+        } else {
+            btnResultRetry.style.display = 'none';
+        }
+    }
+
+    function loadHistory() {
+        const history = JSON.parse(localStorage.getItem('musicQuizHistory')) || [];
+        const tbody = document.getElementById('history-tbody');
+        const noDataMsg = document.getElementById('no-history-msg');
+        const table = document.getElementById('history-table');
+
+        tbody.innerHTML = '';
+        if (history.length === 0) {
+            noDataMsg.style.display = 'block';
+            table.style.display = 'none';
+        } else {
+            noDataMsg.style.display = 'none';
+            table.style.display = 'table';
+            
+            [...history].reverse().slice(0, 10).forEach(h => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${h.date}</td><td>${h.score} / ${h.total}</td><td>${h.percent}%</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+</script>
+
+</body>
+</html>
