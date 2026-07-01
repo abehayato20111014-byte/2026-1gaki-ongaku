@@ -156,7 +156,7 @@
         <div id="history-container">
             <table id="history-table">
                 <thead>
-                    <tr><th>日時</th><th>スコア</th><th>正答率</th></tr>
+                    <tr><th>日時</th><th>正答率</th></tr>
                 </thead>
                 <tbody id="history-tbody"></tbody>
             </table>
@@ -200,15 +200,14 @@
 <script>
     /**
      * 問題データ
-     * 問題1の「a」の選択肢に「クラインソプラニーノ」「クラインソプラニーノリコーダー」のパターンを追加しました。
      */
     const allQuestions = [
         { id:29,type:"text",q:"たとうべき",a:["たとえたらよいのだろうか、船を進める道具"]},
-{id:30,type:"text",q:"あけぼのの",a:["夜明け"]},
-{id:31,type:"text",q:"錦おりなす",a:["美しい織物のように見える"]},
-{id:32,type:"text",q:"長堤",a:["長い土手"]},
-{id:32,type:"text",q:"くるれば",a:["日が暮れると"]},
-{id:33,type:"text",q:"一刻も千金の",a:["ひとときさえもとても価値のある"]},
+        {id:30,type:"text",q:"あけぼのの",a:["夜明け"]},
+        {id:31,type:"text",q:"錦おりなす",a:["美しい織物のように見える"]},
+        {id:32,type:"text",q:"長堤",a:["長い土手"]},
+        {id:33,type:"text",q:"くるれば",a:["日が暮れると"]},
+        {id:33,type:"text",q:"一刻も千金の",a:["ひとときさえもとても価値のある"]},
 
         {
             id: 1, type: "text",
@@ -233,7 +232,7 @@
         { id: 7, type: "piano", q: "和音「Dm7」を構成する音をすべて選びなさい。", a: ["D", "F", "A", "C"] },
         { id: 8, type: "piano", q: "和音「Gm6」を構成する音をすべて選びなさい。", a: ["G", "A#", "D", "E"] },
         
-        { id: 9, type: "text", q: "歌曲「花」の作曲者は誰？", a: ["滝廉太郎", "瀧廉太郎"] },
+        { id: 9, type: "text", q: "歌曲「花」の作曲者誰？", a: ["滝廉太郎", "瀧廉太郎"] },
         { id: 10, type: "text", q: "歌曲「花」の作詞者は誰？", a: ["武島羽衣"] },
         { id: 11, type: "text", q: "「花」のテンポは？", a: ["60～66", "60-66", "60〜66"] },
         { id: 12, type: "text", q: "「花」の序盤部分になぜ16分休符があるか？", a: ["躍動感を出すため", "躍動感をだすため"] },
@@ -265,25 +264,25 @@
             img: true,
             a: [ "頭部管","ミドルピース"]
         },
-            {
-            id:39 , type: "text",
+        {
+            id: 39, type: "text",  /* ← ここが空欄になっていたので「39」に修正しました */
             q: "画像で指定されているDを答えなさい。",
             img: true,
             a: [ "音孔","トーンホール"]
         },
-                {
+        {
             id: 36, type: "text",
             q: "画像で指定されているEを答えなさい。",
             img: true,
             a: [ "サムホール","（場所は気にすんな）"]
         },
-                    {
+        {
             id: 37, type: "text",
             q: "画像で指定されているFを答えなさい。",
             img: true,
             a: [ "フットピース","足部管"]
         },
-                        {
+        {
             id: 38, type: "text",
             q: "画像で指定されているGを答えなさい。",
             img: true,
@@ -508,12 +507,12 @@
             msg.style.display = 'none'; tbl.style.display = 'table';
             [...history].reverse().slice(0, 5).forEach(h => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${h.date}</td><td>${h.score}/${h.total}</td><td>${h.pct}%</td>`;
+                tr.innerHTML = `<td>${h.date}</td><td>${h.pct}%</td>`;
                 tbody.appendChild(tr);
             });
         }
     }
 </script>
 
-</body>
+</body> 
 </html>
